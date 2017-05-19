@@ -1,5 +1,5 @@
 <p align="center">
-  <h3 align="center">gdzip</h3>
+  <h2 align="center">gdzip</h2>
   <p align="center">
     <a href="https://goreportcard.com/report/github.com/w33zl3p00tch/gdzip"><img src="https://goreportcard.com/badge/github.com/w33zl3p00tch/gdzip"></a>
   </p>
@@ -8,8 +8,6 @@
 ## Synopsis
 
 gdzip is a command line tool to compress and encrypt a file or folder.
-
-Internally, compression is handled as a tar.gz archive that retains the original file metadata. Encryption is done using AES256-GCM and/or ChaCha20-Poly1305. Key derivation is done using scrypt.
 
 
 Internally, the given files and/or folders are compressed and stored as tar.gz archives that retain the original file metadata. The data are split into chunks while encrypting, and encryption is done done using AES256-GCM and/or ChaCha20-Poly1305. All this happens in RAM, so no temporary files will be used.
