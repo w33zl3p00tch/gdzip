@@ -38,7 +38,6 @@ func tarGz(src string, writers ...io.Writer) error {
 
 	info, err := os.Stat(src)
 	if err != nil {
-		panic(err)
 		return err
 	}
 
@@ -136,7 +135,6 @@ func untarGz(dst string, r io.Reader) error {
 			return nil
 		// return any other error
 		case err != nil:
-			panic(err)
 			return err
 		// if the header is nil, just skip it (not sure how this happens)
 		case header == nil:
