@@ -51,7 +51,7 @@ $ gdzip -h
 ```
 
 
-example with more options set:
+Example with more options set:
 ```
 $ gdzip -encrypt PATH_TO_FILE -mode 3 -dest /tmp/
 ```
