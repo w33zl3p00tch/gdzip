@@ -299,7 +299,7 @@ func encrypt() {
 	nonceStringMap := make(map[string]bool)
 	ivStringMap := make(map[string]bool)
 
-	bytesRead := 0      // track how many bytes we handle
+	//bytesRead := 0      // track how many bytes we handle
 	eofReached := false // whether the writer's EOF is reached
 
 	// A nifty UNIX-style spinner
@@ -360,7 +360,7 @@ func encrypt() {
 			}
 		}
 
-		bytesRead += bytesPerBuffer // add to the total of bytes read
+		//bytesRead += bytesPerBuffer // add to the total of bytes read
 
 		// Now that our buffer is filled, we can encrypt it:
 
@@ -724,6 +724,7 @@ func decrypt() {
 		// Write the decrypted chunk to the io.Pipe for
 		// untaring/gunzipping.
 		_, err = untarWriter.Write(chunkBuf)
+		check(err)
 	}
 
 	// Overwrite the keys
