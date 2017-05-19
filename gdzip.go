@@ -82,7 +82,7 @@ var (
 	scryptR int // r-factor for scrypt
 	scryptP int // p-factor for scrypt
 	// The magic number. Do not change this unless you need to break
-	// compatibilty with other builds.
+	// compatibility with other builds.
 	magic = []byte{0xD0, 0x6E, 0xFA, 0xCE}
 	// The first gobbledog file format version is 101 in HEX (0x65):
 	fileVersion = []byte{0x65}
@@ -895,7 +895,7 @@ See gdzip -h for full help.
 	return
 }
 
-// check for errors and quit if an error occured.
+// check for errors and quit if an error occurred.
 func check(err error) {
 	if err != nil {
 		fmt.Printf("\n")
