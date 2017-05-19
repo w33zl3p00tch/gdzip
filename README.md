@@ -28,7 +28,7 @@ Please report any bugs you might find. Suggestions and feature requests are welc
 to encrypt a file or folder:
 
 ```
-$ gdzip -encrypt FILE_TO_HIDE
+$ gdzip -encrypt FILE_TO_ENCRYPT
 ```
 
 
