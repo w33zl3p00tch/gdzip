@@ -1,3 +1,10 @@
+<p align="center">
+  <h3 align="center">gdzip</h3>
+  <p align="center">
+    <a href="https://goreportcard.com/report/github.com/w33zl3p00tch/gdzip"><img src="https://goreportcard.com/badge/github.com/w33zl3p00tch/gdzip"></a>
+  </p>
+</p>
+
 ## Synopsis
 
 gdzip is a command line tool to compress and encrypt a file or folder.
