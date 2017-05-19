@@ -886,7 +886,7 @@ It is unclear what you want to do exactly.
 Either specify a file to encrypt with "-encrypt [FILENAME]"
 or a file to decrypt with "-decrypt [FILENAME]".
 
-See gobbledog -h for full help.
+See gdzip -h for full help.
 `
 	fmt.Println(msg)
 	statusCode = 3 // ambigouous input
