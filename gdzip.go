@@ -200,17 +200,20 @@ func encrypt() {
 	if destination == "" {
 		path, err := os.Getwd()
 		check(err)
-		destination = path + string(os.PathSeparator) + filepath.Base(encFile) + ".gdz"
+		destination = path + string(os.PathSeparator) +
+			filepath.Base(encFile) + ".gdz"
 	} else {
 		sep := ""
-		if string(destination[len(destination)-1]) != string(os.PathSeparator) {
+		if string(destination[len(destination)-1]) != string(
+			os.PathSeparator) {
 			sep = string(os.PathSeparator)
 		}
 		destination = destination + sep + filepath.Base(encFile) + ".gdz"
 	}
 
 	if _, err := os.Stat(destination); err == nil {
-		fmt.Printf("\n%s already exists. Overwrite? (yes/No): ", destination)
+		fmt.Printf("\n%s already exists. Overwrite? (yes/No): ",
+			destination)
 		reader := bufio.NewReader(os.Stdin)
 		text, _ := reader.ReadString('\n')
 		if !strings.EqualFold("y", string(text[0])) {
@@ -235,11 +238,11 @@ func encrypt() {
 
 	// When encrypting, we want to check the user input for typos,
 	// so we pass decrypt = false to to getPassphrase().
-	decrypt := false
+	encrypting := true
 	// Get the encryption passphrase from the user, if it is not already
 	// set by the flag:
 	if len(passphrase) == 0 {
-		passphrase = getPassphrase(decrypt)
+		passphrase = getPassphrase(encrypting)
 	}
 
 	// Generate the encryption key:
@@ -299,37 +302,22 @@ func encrypt() {
 	nonceStringMap := make(map[string]bool)
 	ivStringMap := make(map[string]bool)
 
-	//bytesRead := 0      // track how many bytes we handle
 	eofReached := false // whether the writer's EOF is reached
 
-	// A nifty UNIX-style spinner
 	var now, timeDiff int64
-	sandClock := []string{`|`, `/`, `-`, `\`}
 	logMsg("\nEncrypting...\n\n")
 	start := time.Now().UnixNano() / int64(time.Millisecond)
 	timeLast := start
 	sandClockIndex := 0
+	encrypt := true
 
 	// This is the main loop to handle compression/encryption:
 	for {
 		// Display a spinner and write the progress when verbose
-		if !quiet {
-			now = time.Now().UnixNano() / int64(time.Millisecond)
-			timeDiff = now - timeLast
-		}
-		if !quiet && timeDiff > 250 {
-			fmt.Printf("\r") // Put the cursor back to the left.
-			fmt.Printf(sandClock[sandClockIndex]+" Please wait."+
-				" Bytes written: %d  (%0.3f MB)",
-				bytesWritten,
-				float32(bytesWritten)/(1024.0*1024.0))
-			if sandClockIndex == 3 {
-				sandClockIndex = 0
-			} else {
-				sandClockIndex++
-			}
-			timeLast = now
-		}
+		now = time.Now().UnixNano() / int64(time.Millisecond)
+		timeDiff = now - timeLast
+		timeLast, sandClockIndex = displayStatus(encrypt, now, timeDiff,
+			timeLast, bytesWritten, sandClockIndex)
 
 		// Every iteration of the loop starts with an unused buffer.
 		// We need to keep track of how many bytes we have actually
@@ -360,90 +348,18 @@ func encrypt() {
 			}
 		}
 
-		//bytesRead += bytesPerBuffer // add to the total of bytes read
-
 		// Now that our buffer is filled, we can encrypt it:
 
 		// Get a random nonce and/or IV and put their string
 		// representation into a hash table
-		currentIV := make([]byte, ivLength)
-		currentNonce := make([]byte, nonceLength)
-		var nonceString, ivString string
-		//
-		// For modes 1, 3 and 4 we need IVs
-		if mode == 1 || mode == 3 || mode == 4 {
-			// Read from crypto/rand into the slice
-			_, err := io.ReadFull(rand.Reader, currentIV[:])
-			check(err)
-			// Get a string representation of the IV for the
-			// hashmap.
-			// a []byte slice is not comparable in a hash map, but
-			// a string can be compared with "==".
-			ivString = string(currentIV[:])
-			//
-			// Check whether it exists in nonceStringMap.
-			//
-			// The following while loop's condition will almost
-			// never be true, but when it is, we have to eliminate
-			// the duplicate before it can be used as a nonce.
-			for ivStringMap[ivString] == true {
-				// Get a new nonce.
-				_, err := io.ReadFull(rand.Reader, currentIV[:])
-				check(err)
-				// Reassign the string.
-				ivString = string(currentIV[:])
-				logMsg("\nDuplicate IV found." +
-					"\nIf this happens often," +
-					" your system's random" +
-					" number generator might be broken.")
-			}
-			//
-			// Now that we have a unique IV, put it into the map.
-			ivStringMap[ivString] = true
-		}
-		// For modes 2, 3 and 4 we need nonces.
-		if mode == 2 || mode == 3 || mode == 4 {
-			_, err := io.ReadFull(rand.Reader, currentNonce[:])
-			check(err)
-			// Same as before, just with nonces.
-			nonceString = string(currentNonce[:])
-			for nonceStringMap[nonceString] == true {
-				_, err := io.ReadFull(rand.Reader,
-					currentNonce[:])
-				check(err)
-				// Reassign the string.
-				nonceString = string(currentNonce[:])
-				logMsg("\nDuplicate nonce found." +
-					"\nIf this happens often," +
-					" your system's random" +
-					" number generator might be broken.")
-			}
-			// Put the nonce into the map.
-			nonceStringMap[nonceString] = true
-		}
+		currentIV, currentNonce := getNonce(ivStringMap, nonceStringMap)
+
+		// resize chunkBuf, if necessary
+		chunkBuf = chunkBuf[:bytesPerBuffer]
 
 		// Finally, encrypt our buffer's contents:
-		switch mode {
-		case 1:
-			chunkBuf = encryptAesGcm(aes256Key,
-				currentIV, chunkBuf[:bytesPerBuffer])
-		case 2:
-			chunkBuf = encryptChacha20Poly1305(
-				chacha20Key, currentNonce,
-				chunkBuf[:bytesPerBuffer])
-		case 3:
-			chunkBuf = encryptAesGcm(aes256Key,
-				currentIV, chunkBuf[:bytesPerBuffer])
-			chunkBuf = encryptChacha20Poly1305(
-				chacha20Key, currentNonce,
-				chunkBuf)
-		case 4:
-			chunkBuf = encryptChacha20Poly1305(
-				chacha20Key, currentNonce,
-				chunkBuf[:bytesPerBuffer])
-			chunkBuf = encryptAesGcm(aes256Key,
-				currentIV, chunkBuf)
-		}
+		chunkBuf = encryptBuffer(chunkBuf, aes256Key, chacha20Key,
+			currentIV, currentNonce)
 
 		// Get the chunk's final length and prepend it to the chunk:
 		currentChunkLen := make([]byte, sixtyFourBit)
@@ -491,6 +407,67 @@ func encrypt() {
 	return
 }
 
+// getNonce returns unique nonces and IVs
+func getNonce(ivStringMap map[string]bool, nonceStringMap map[string]bool) (
+	[]byte, []byte) {
+	currentIV := make([]byte, ivLength)
+	currentNonce := make([]byte, nonceLength)
+	var nonceString, ivString string
+	//
+	// For modes 1, 3 and 4 we need IVs
+	if mode == 1 || mode == 3 || mode == 4 {
+		// Read from crypto/rand into the slice
+		_, err := io.ReadFull(rand.Reader, currentIV[:])
+		check(err)
+		// Get a string representation of the IV for the
+		// hashmap.
+		// a []byte slice is not comparable in a hash map, but
+		// a string can be compared with "==".
+		ivString = string(currentIV[:])
+		//
+		// Check whether it exists in nonceStringMap.
+		//
+		// The following while loop's condition will almost
+		// never be true, but when it is, we have to eliminate
+		// the duplicate before it can be used as a nonce.
+		for ivStringMap[ivString] == true {
+			// Get a new nonce.
+			_, err := io.ReadFull(rand.Reader, currentIV[:])
+			check(err)
+			// Reassign the string.
+			ivString = string(currentIV[:])
+			logMsg("\nDuplicate IV found." +
+				"\nIf this happens often," +
+				" your system's random" +
+				" number generator might be broken.")
+		}
+		//
+		// Now that we have a unique IV, put it into the map.
+		ivStringMap[ivString] = true
+	}
+	// For modes 2, 3 and 4 we need nonces.
+	if mode == 2 || mode == 3 || mode == 4 {
+		_, err := io.ReadFull(rand.Reader, currentNonce[:])
+		check(err)
+		// Same as before, just with nonces.
+		nonceString = string(currentNonce[:])
+		for nonceStringMap[nonceString] == true {
+			_, err := io.ReadFull(rand.Reader,
+				currentNonce[:])
+			check(err)
+			// Reassign the string.
+			nonceString = string(currentNonce[:])
+			logMsg("\nDuplicate nonce found." +
+				"\nIf this happens often," +
+				" your system's random" +
+				" number generator might be broken.")
+		}
+		// Put the nonce into the map.
+		nonceStringMap[nonceString] = true
+	}
+	return currentIV, currentNonce
+}
+
 // decrypt a gdz archive and write its contents after untargzing to disk.
 func decrypt() {
 	// Open the input file for reading.
@@ -498,18 +475,283 @@ func decrypt() {
 	inFile, err := os.Open(decFile)
 	check(err)
 	// Defer closure of the file.
-	defer inFile.Close()
+	defer func() {
+		err := inFile.Close()
+		check(err)
+	}()
 
-	// Total bytes read from the input
+	// Read the header
+	bytesRead, salt := readHeader(inFile)
+
+	// If the header was wrong, return:
+	switch statusCode {
+	case 3: // wrong magic number - return with error
+		logMsg("\nThis is not a gdzip encrypted file. \n" +
+			"Either the header and file is corrupt or the file" +
+			" is invalid.\nAborting.\n")
+		fmt.Println("Error: not a gdz file")
+		return
+
+	case 4: // unknown version - return with error:
+		logMsg("\nThis file seems to be encrypted with a newer" +
+			"version of gdzip. Please get the most recent version" +
+			"and try again.\n")
+		fmt.Println("Error: unknown file version")
+		return
+	}
+
+	if destination == "" {
+		path, err := os.Getwd()
+		check(err)
+		destination = path
+	} else {
+		sep := ""
+		if string(destination[len(destination)-1]) != string(os.PathSeparator) {
+			sep = string(os.PathSeparator)
+		}
+		destination = destination + sep
+	}
+
+	// Get the passphrase
+	encrypting := false
+	passphrase := getPassphrase(encrypting)
+
+	// Generate the decryption key
+	logMsg("\n\nCalculating the decryption key. This may take a while... ")
+	chacha20Key, aes256Key := generateKey(salt, passphrase)
+	logMsg("done.\n")
+
+	// clear the passphrase
+	for i := range passphrase {
+		passphrase[i] = byte(0)
+	}
+
+	// Analogous to encrypting, we need an io.Pipe for the UntarGz
+	// function.
+	// Because it may need some time to write its last bytes, we have
+	// to wait for it to finish, so we add it to a WaitGroup.
+	untarReader, untarWriter := io.Pipe()
+	var wg sync.WaitGroup // Initialize a WaitGroup.
+	wg.Add(1)             // Add one goroutine to the WaitGroup.
+	go func() {
+		defer wg.Done() // Tell the WaitGroup that we're done.
+
+		// untar the stream and write it to dest.
+		untarErr := untarGz(destination, untarReader)
+		if untarErr != io.EOF {
+			check(untarErr)
+		}
+		defer untarReader.Close()
+	}()
+
+	// Whether EOF has been reached by the file Reader:
+	eofReached := false
+
+	var now, timeDiff int64
+	logMsg("\nDecrypting...\n\n")
+	start := time.Now().UnixNano() / int64(time.Millisecond)
+	timeLast := start
+	sandClockIndex := 0
+
+	// Decryption is handled in the following loop
+	for {
+		// Display a spinner and write the progress when verbose
+		now = time.Now().UnixNano() / int64(time.Millisecond)
+		timeDiff = now - timeLast
+		timeLast, sandClockIndex = displayStatus(encrypting, now, timeDiff,
+			timeLast, bytesRead, sandClockIndex)
+
+		// Read the the next chunk's length.
+		// When there are no more chunks, we get an EOF from
+		// the reader, which is our signal to stop.
+		currentChunkLenBytes := make([]byte, sixtyFourBit)
+		br, err := inFile.Read(currentChunkLenBytes)
+		if err == io.EOF {
+			eofReached = true
+		} else {
+			check(err)
+		}
+
+		// As soon as we don't get any more bytes from the reader,
+		// we're finished and have to leave the loop.
+		if eofReached && br == 0 {
+			fmt.Println(bytesRead)
+			if err = untarWriter.Close(); err != nil {
+				panic(err)
+			}
+			// Wait for the UntarGz writer to finish:
+			wg.Wait()
+			// We're done. Break out of the loop:
+			break
+		}
+
+		currentChunkLen := binary.BigEndian.Uint64(currentChunkLenBytes)
+		bytesRead += br
+
+		// Make a fresh buffer.
+		chunkBuf := make([]byte, int(currentChunkLen))
+
+		// Read the ciphertext into the buffer.
+		br, err = inFile.Read(chunkBuf)
+		check(err)
+		bytesRead += br
+
+		// Decrypt the current chunk.
+		chunkBuf = decryptBuffer(chunkBuf, aes256Key, chacha20Key)
+
+		// Write the decrypted chunk to the io.Pipe for
+		// untaring/gunzipping.
+		_, err = untarWriter.Write(chunkBuf)
+		check(err)
+	}
+
+	// Overwrite the keys
+	for i := range aes256Key {
+		aes256Key[i] = byte(0)
+	}
+	for i := range chacha20Key {
+		chacha20Key[i] = byte(0)
+	}
+
+	logMsg("\rDone.                                                            \n")
+	logMsg("Encrypted file: " + destination + "\n")
+	if !quiet {
+		end := time.Now().UnixNano() / int64(time.Millisecond)
+		duration := end - start
+		fmt.Printf(
+			"%d bytes (%0.3f MB) written in %d ms (%0.2f seconds)\n",
+			bytesRead, float32(bytesRead)/(1024*1024),
+			duration, float32(duration)/1000)
+	}
+
+	statusCode = 0
+	return
+}
+
+// displayStatus
+func displayStatus(encrypt bool, now, timeDiff, timeLast int64, br, idx int) (
+	int64, int) {
+	sandClock := []string{`|`, `/`, `-`, `\`}
+	var state string
+
+	if encrypt {
+		state = "written"
+	} else {
+		state = "read"
+	}
+
+	if !quiet {
+		timeDiff = now - timeLast
+	}
+	if !quiet && timeDiff > 250 {
+		fmt.Printf("\r") // Put the cursor back to the left.
+		fmt.Printf(sandClock[idx]+" Please wait."+
+			" Bytes "+state+": %d  (%0.3f MB)",
+			br,
+			float32(br)/(1024.0*1024.0))
+		if idx == 3 {
+			idx = 0
+		} else {
+			idx++
+		}
+		timeLast = now
+	}
+	return timeLast, idx
+}
+
+// encryptBuffer is a wrapper to encrypt a chunk buffer
+func encryptBuffer(chunkBuf, aes256Key, chacha20Key, currentIV,
+	currentNonce []byte) []byte {
+	switch mode {
+	case 1:
+		chunkBuf = encryptAesGcm(aes256Key,
+			currentIV, chunkBuf)
+	case 2:
+		chunkBuf = encryptChacha20Poly1305(
+			chacha20Key, currentNonce,
+			chunkBuf)
+	case 3:
+		chunkBuf = encryptAesGcm(aes256Key,
+			currentIV, chunkBuf)
+		chunkBuf = encryptChacha20Poly1305(
+			chacha20Key, currentNonce,
+			chunkBuf)
+	case 4:
+		chunkBuf = encryptChacha20Poly1305(
+			chacha20Key, currentNonce,
+			chunkBuf)
+		chunkBuf = encryptAesGcm(aes256Key,
+			currentIV, chunkBuf)
+	}
+	return chunkBuf
+}
+
+// decryptBuffer is a wrapper to decrypt a chunk buffer
+func decryptBuffer(chunkBuf, aes256Key, chacha20Key []byte) []byte {
+	switch mode {
+	case 1:
+		chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
+	case 2:
+		chunkBuf = decryptChacha20Poly1305(chacha20Key,
+			chunkBuf)
+	case 3:
+		chunkBuf = decryptChacha20Poly1305(chacha20Key,
+			chunkBuf)
+		chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
+	case 4:
+		chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
+		chunkBuf = decryptChacha20Poly1305(chacha20Key,
+			chunkBuf)
+	}
+	return chunkBuf
+}
+
+// assembleHeader builds the gdz file header.
+func assembleHeader(salt []byte) []byte {
+	if fileVersion[0] != 0x65 {
+		log.Fatal("Unknown file version specified. Aborting.")
+	}
+	// Build the header. The format for version 0x65 is:
+	// [magic] [version] [mode] [saltLen] [salt] [scryptNlen] [scryptN] ->
+	// [scryptR] [scryptP]
+	//
+	// The mode as uint8
+	modeByte := []byte{byte(uint8(mode))}
+	// Saltlength in bytes. If the salt gets larger than 255 bytes,
+	// another type is needed. (This is not recommended.)
+	saltLengthByte := []byte{byte(len(salt))}
+	// In Golang, an int is at least 32 bits long. Better play it
+	// safe and reserve 64 bits.
+	scryptNSize := []byte{sixtyFourBit}
+	scryptNBytes := make([]byte, sixtyFourBit)
+	binary.BigEndian.PutUint64(scryptNBytes, uint64(scryptN))
+	// Current sane values for r can be represented as uint8.
+	// The byte indicates the uint8 value for r.
+	scryptRByte := []byte{byte(uint8(scryptR))}
+	// The same goes for p:
+	scryptPByte := []byte{byte(uint8(scryptP))}
+	header := append(magic, fileVersion...)
+	header = append(header, modeByte...)
+	header = append(header, saltLengthByte...)
+	header = append(header, salt...)
+	header = append(header, scryptNSize...)
+	header = append(header, scryptNBytes...)
+	header = append(header, scryptRByte...)
+	header = append(header, scryptPByte...)
+
+	return header
+}
+
+// readHeader reads and interprets the header of a gdz file
+func readHeader(inFile *os.File) (int, []byte) {
 	bytesRead := 0
-
 	// Read the header:
 	//
 	// This is a litany of reading and interpreting the first few
 	// bytes of a gdz file.
 	//
 	// Go to position zero in the file
-	_, err = inFile.Seek(0, 0)
+	_, err := inFile.Seek(0, 0)
 	check(err)
 	//
 	// [4]magic: get the first four bytes and interpret them.
@@ -521,11 +763,8 @@ func decrypt() {
 		// Wrong magic number. This will not end well.
 		// We have to stop here as we have no idea how to handle
 		// what comes next.
-		logMsg("\nThis is not a gdzip encrypted file. \n" +
-			"Either the header and file is corrupt or the file" +
-			" is invalid.\nAborting.\n")
-		statusCode = 1 // wrong file type
-		return
+		statusCode = 3 // wrong file type
+		return bytesRead, []byte{}
 	}
 	//
 	// [1]version: take the next byte. - You get the picture.
@@ -535,11 +774,8 @@ func decrypt() {
 	bytesRead += br
 	if !bytes.Equal(inVersion, fileVersion) {
 		// Unrecognized version. We cannot continue.
-		logMsg("\nThis file seems to be encrypted with a newer" +
-			"version of gdzip. Please get the most recent version" +
-			"and try again.\n")
-		statusCode = 2 // unknown version
-		return
+		statusCode = 4 // unknown version
+		return bytesRead, []byte{}
 	}
 	logMsg("This seems to be a gdzip encrypted file.\n")
 	//
@@ -592,198 +828,7 @@ func decrypt() {
 	scryptP = int(inScryptPBytes[0])
 	//
 	// We're done with reading the header.
-
-	if destination == "" {
-		path, err := os.Getwd()
-		check(err)
-		destination = path
-	} else {
-		sep := ""
-		if string(destination[len(destination)-1]) != string(os.PathSeparator) {
-			sep = string(os.PathSeparator)
-		}
-		destination = destination + sep
-	}
-
-	// Get the passphrase
-	decrypt := true
-	passphrase := getPassphrase(decrypt)
-
-	// Generate the decryption key
-	logMsg("\n\nCalculating the decryption key. This may take a while... ")
-	chacha20Key, aes256Key := generateKey(salt, passphrase)
-	logMsg("done.\n")
-
-	// clear the passphrase
-	for i := range passphrase {
-		passphrase[i] = byte(0)
-	}
-
-	// Analogous to encrypting, we need an io.Pipe for the UntarGz
-	// function.
-	// Because it may need some time to write its last bytes, we have
-	// to wait for it to finish, so we add it to a WaitGroup.
-	untarReader, untarWriter := io.Pipe()
-	var wg sync.WaitGroup // Initialize a WaitGroup.
-	wg.Add(1)             // Add one goroutine to the WaitGroup.
-	go func() {
-		defer wg.Done() // Tell the WaitGroup that we're done.
-
-		// untar the stream and write it to dest.
-		untarErr := untarGz(destination, untarReader)
-		if untarErr != io.EOF {
-			check(untarErr)
-		}
-		defer untarReader.Close()
-	}()
-
-	// Whether EOF has been reached by the file Reader:
-	eofReached := false
-
-	// A nifty UNIX-style spinner
-	var now, timeDiff int64
-	sandClock := []string{`|`, `/`, `-`, `\`}
-	logMsg("\nDecrypting...\n\n")
-	start := time.Now().UnixNano() / int64(time.Millisecond)
-	timeLast := start
-	sandClockIndex := 0
-
-	// Decryption is handled in the following loop
-	for {
-		// Display a spinner and write the progress when verbose
-		if !quiet {
-			now = time.Now().UnixNano() / int64(time.Millisecond)
-			timeDiff = now - timeLast
-		}
-		if !quiet && timeDiff > 250 {
-			fmt.Printf("\r") // Put the cursor back to the left.
-			fmt.Printf(sandClock[sandClockIndex]+" Please wait."+
-				" Bytes written: %d  (%0.3f MB)",
-				bytesRead,
-				float32(bytesRead)/(1024.0*1024.0))
-			if sandClockIndex == 3 {
-				sandClockIndex = 0
-			} else {
-				sandClockIndex++
-			}
-			timeLast = now
-		}
-
-		// Read the the next chunk's length.
-		// When there are no more chunks, we get an EOF from
-		// the reader, which is our signal to stop.
-		currentChunkLenBytes := make([]byte, sixtyFourBit)
-		br, err := inFile.Read(currentChunkLenBytes)
-		if err == io.EOF {
-			eofReached = true
-		} else {
-			check(err)
-		}
-
-		// As soon as we don't get any more bytes from the reader,
-		// we're finished and have to leave the loop.
-		if eofReached && br == 0 {
-			fmt.Println(bytesRead)
-			if err = untarWriter.Close(); err != nil {
-				panic(err)
-			}
-			// Wait for the UntarGz writer to finish:
-			wg.Wait()
-			// We're done. Break out of the loop:
-			break
-		}
-
-		currentChunkLen := binary.BigEndian.Uint64(currentChunkLenBytes)
-		bytesRead += br
-
-		// Make a fresh buffer.
-		chunkBuf := make([]byte, int(currentChunkLen))
-
-		// Read the ciphertext into the buffer.
-		br, err = inFile.Read(chunkBuf)
-		check(err)
-		bytesRead += br
-
-		// Decrypt the current chunk.
-		switch mode {
-		case 1:
-			chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
-		case 2:
-			chunkBuf = decryptChacha20Poly1305(chacha20Key,
-				chunkBuf)
-		case 3:
-			chunkBuf = decryptChacha20Poly1305(chacha20Key,
-				chunkBuf)
-			chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
-		case 4:
-			chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
-			chunkBuf = decryptChacha20Poly1305(chacha20Key,
-				chunkBuf)
-		}
-
-		// Write the decrypted chunk to the io.Pipe for
-		// untaring/gunzipping.
-		_, err = untarWriter.Write(chunkBuf)
-		check(err)
-	}
-
-	// Overwrite the keys
-	for i := range aes256Key {
-		aes256Key[i] = byte(0)
-	}
-	for i := range chacha20Key {
-		chacha20Key[i] = byte(0)
-	}
-
-	logMsg("\rDone.                                                            \n")
-	logMsg("Encrypted file: " + destination + "\n")
-	if !quiet {
-		end := time.Now().UnixNano() / int64(time.Millisecond)
-		duration := end - start
-		fmt.Printf(
-			"%d bytes (%0.3f MB) written in %d ms (%0.2f seconds)\n",
-			bytesRead, float32(bytesRead)/(1024*1024),
-			duration, float32(duration)/1000)
-	}
-
-	statusCode = 0
-	return
-}
-
-// assembleHeader builds the file header.
-func assembleHeader(salt []byte) []byte {
-	if fileVersion[0] != 0x65 {
-		log.Fatal("Unknown file version specified. Aborting.")
-	}
-	// Build the header. The format for version 0x65 is:
-	// [magic] [version] [mode] [saltLen] [salt] [scryptNlen] [scryptN] ->
-	// [scryptR] [scryptP]
-	//
-	// The mode as uint8
-	modeByte := []byte{byte(uint8(mode))}
-	// Saltlength in bytes. If the salt gets larger than 255 bytes,
-	// another type is needed. (This is not recommended.)
-	saltLengthByte := []byte{byte(len(salt))}
-	// In Golang, an int is at least 32 bits long. Better play it
-	// safe and reserve 64 bits.
-	scryptNSize := []byte{sixtyFourBit}
-	scryptNBytes := make([]byte, sixtyFourBit)
-	binary.BigEndian.PutUint64(scryptNBytes, uint64(scryptN))
-	// Current sane values for r can be represented as uint8.
-	// The byte indicates the uint8 value for r.
-	scryptRByte := []byte{byte(uint8(scryptR))}
-	// The same goes for p:
-	scryptPByte := []byte{byte(uint8(scryptP))}
-	header := append(magic, fileVersion...)
-	header = append(header, modeByte...)
-	header = append(header, saltLengthByte...)
-	header = append(header, salt...)
-	header = append(header, scryptNSize...)
-	header = append(header, scryptNBytes...)
-	header = append(header, scryptRByte...)
-	header = append(header, scryptPByte...)
-
-	return header
+	return bytesRead, salt
 }
 
 // logMsg is a shorthand for logging to stdout.
@@ -795,11 +840,11 @@ func logMsg(msg string) {
 
 // getPassphrase gets the passphrase from the user. Will not echo.
 // Currently, this uses ReadPassword() from x/crypto/ssh/terminal.
-func getPassphrase(decrypt bool) []byte {
+func getPassphrase(encrypt bool) []byte {
 	var passphrase []byte
 	match := false // whether the phrases given are the same
 
-	if !decrypt {
+	if encrypt {
 		for match == false {
 			fmt.Printf("\nEnter a passphrase for encryption: ")
 			bytePassword, err := terminal.ReadPassword(int(
@@ -899,7 +944,6 @@ See gdzip -h for full help.
 func check(err error) {
 	if err != nil {
 		fmt.Printf("\n")
-		//log.Fatal(err)
 		panic(err)
 	}
 }
