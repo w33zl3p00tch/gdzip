@@ -353,7 +353,7 @@ func encrypt() {
 		panic(err)
 	}
 
-	logMsg("\rDone.                                                            \n")
+	logMsg("\rDone." + strings.Repeat(" ", 60) + "\n")
 	logMsg("Encrypted file: " + destination + "\n")
 	logStatus(start, bytesWritten, encrypting)
 	statusCode = 0
@@ -419,8 +419,6 @@ func readTar(tarReader io.Reader) ([]byte, bool) {
 			panic(err)
 		}
 	}
-
-	// Now that our buffer is filled, we can encrypt it:
 
 	// resize chunkBuf, if necessary
 	return chunkBuf[:bytesPerBuffer], eofReached
