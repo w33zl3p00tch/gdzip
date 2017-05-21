@@ -237,7 +237,7 @@ func encrypt() {
 	}()
 
 	// When encrypting, we want to check the user input for typos,
-	// so we pass decrypt = false to to getPassphrase().
+	// so we pass decrypt = false to getPassphrase().
 	encrypting := true
 	// Get the encryption passphrase from the user, if it is not already
 	// set by the flag:
@@ -260,9 +260,7 @@ func encrypt() {
 	// make golang's memory usage more interfaceable, but they are not to
 	// be regarded stable, yet. (see github.com/libeclipse/memguard, for
 	// an example)
-	for i := range passphrase {
-		passphrase[i] = byte(0)
-	}
+	eraseSlice(passphrase)
 	logMsg("done.\n")
 
 	// Create the public header
@@ -302,62 +300,28 @@ func encrypt() {
 	nonceStringMap := make(map[string]bool)
 	ivStringMap := make(map[string]bool)
 
-	eofReached := false // whether the writer's EOF is reached
-
 	var now, timeDiff int64
 	logMsg("\nEncrypting...\n\n")
 	start := time.Now().UnixNano() / int64(time.Millisecond)
 	timeLast := start
 	sandClockIndex := 0
-	encrypt := true
 
 	// This is the main loop to handle compression/encryption:
 	for {
 		// Display a spinner and write the progress when verbose
 		now = time.Now().UnixNano() / int64(time.Millisecond)
 		timeDiff = now - timeLast
-		timeLast, sandClockIndex = displayStatus(encrypt, now, timeDiff,
-			timeLast, bytesWritten, sandClockIndex)
+		timeLast, sandClockIndex = displayStatus(encrypting, now,
+			timeDiff, timeLast, bytesWritten, sandClockIndex)
 
-		// Every iteration of the loop starts with an unused buffer.
-		// We need to keep track of how many bytes we have actually
-		// written into the buffer, because most often, the buffer
-		// will be larger than the last chunk of the file.
-		bytesPerBuffer := 0
-		// chunkBuf is the buffer to store and process our chunks.
-		chunkBuf := make([]byte, chunkLen)
-
-		// Occasionally, the pipe's tarReader will return zero bytes
-		// and no error (nil). We keep reading from it until the buffer
-		// is full or EOF has been reached.
-		for bytesPerBuffer < len(chunkBuf) {
-			// Read from the tarReader.
-			// br: current bytes read from the tarReader
-			br, err := tarReader.Read(chunkBuf[bytesPerBuffer:])
-			bytesPerBuffer += br // add br to the total/buffer
-			if err == io.EOF {
-				// We have reached the tarReader's EOF.
-				eofReached = true
-				// We won't get any more bytes from the
-				// reader, so we have to continue without
-				// a full buffer:
-				break
-			} else if err != nil {
-				// Any other error is inacceptable.
-				panic(err)
-			}
-		}
-
-		// Now that our buffer is filled, we can encrypt it:
+		// read from the tarReader into chunkBuf
+		chunkBuf, eofReached := readTar(tarReader)
 
 		// Get a random nonce and/or IV and put their string
 		// representation into a hash table
 		currentIV, currentNonce := getNonce(ivStringMap, nonceStringMap)
 
-		// resize chunkBuf, if necessary
-		chunkBuf = chunkBuf[:bytesPerBuffer]
-
-		// Finally, encrypt our buffer's contents:
+		// Encrypt our buffer's contents:
 		chunkBuf = encryptBuffer(chunkBuf, aes256Key, chacha20Key,
 			currentIV, currentNonce)
 
@@ -381,12 +345,8 @@ func encrypt() {
 	}
 
 	// Overwrite the keys with zeros:
-	for i := range aes256Key {
-		aes256Key[i] = byte(0)
-	}
-	for i := range chacha20Key {
-		chacha20Key[i] = byte(0)
-	}
+	eraseSlice(aes256Key)
+	eraseSlice(chacha20Key)
 
 	// Flush and close the fileWriter.
 	if err = fileWriter.Flush(); err != nil {
@@ -395,16 +355,75 @@ func encrypt() {
 
 	logMsg("\rDone.                                                            \n")
 	logMsg("Encrypted file: " + destination + "\n")
+	logStatus(start, bytesWritten, encrypting)
+	statusCode = 0
+
+	return
+}
+
+// logStatus prints a final one-line report when verbose.
+func logStatus(start int64, bytesWritten int, encrypt bool) {
+	var op string
+	if encrypt {
+		op = "written"
+	} else {
+		op = "read"
+	}
+
 	if !quiet {
 		end := time.Now().UnixNano() / int64(time.Millisecond)
 		duration := end - start
 		fmt.Printf(
-			"%d bytes (%0.3f MB) written in %d ms (%0.2f seconds)\n",
+			"%d bytes (%0.3f MB) "+op+" in %d ms (%0.2f seconds)\n",
 			bytesWritten, float32(bytesWritten)/(1024*1024),
 			duration, float32(duration)/1000)
 	}
-	statusCode = 0
-	return
+}
+
+// eraseSlice overwrites a byte slice with zeros
+func eraseSlice(s []byte) {
+	for i := range s {
+		s[i] = byte(0)
+	}
+}
+
+// readTar reads from the tar reader into a buffer of size chunkLen
+func readTar(tarReader io.Reader) ([]byte, bool) {
+	// Every iteration of the loop starts with an unused buffer.
+	// We need to keep track of how many bytes we have actually
+	// written into the buffer, because most often, the buffer
+	// will be larger than the last chunk of the file.
+	bytesPerBuffer := 0
+	// Wether we have reached EOF, yet:
+	eofReached := false
+	// chunkBuf is the buffer to store and process our chunks.
+	chunkBuf := make([]byte, chunkLen)
+
+	// Occasionally, the pipe's tarReader will return zero bytes
+	// and no error (nil). We keep reading from it until the buffer
+	// is full or EOF has been reached.
+	for bytesPerBuffer < len(chunkBuf) {
+		// Read from the tarReader.
+		// br: current bytes read from the tarReader
+		br, err := tarReader.Read(chunkBuf[bytesPerBuffer:])
+		bytesPerBuffer += br // add br to the total/buffer
+		if err == io.EOF {
+			// We have reached the tarReader's EOF.
+			eofReached = true
+			// We won't get any more bytes from the
+			// reader, so we have to continue without
+			// a full buffer:
+			break
+		} else if err != nil {
+			// Any other error is inacceptable.
+			panic(err)
+		}
+	}
+
+	// Now that our buffer is filled, we can encrypt it:
+
+	// resize chunkBuf, if necessary
+	return chunkBuf[:bytesPerBuffer], eofReached
 }
 
 // getNonce returns unique nonces and IVs
@@ -522,9 +541,7 @@ func decrypt() {
 	logMsg("done.\n")
 
 	// clear the passphrase
-	for i := range passphrase {
-		passphrase[i] = byte(0)
-	}
+	eraseSlice(passphrase)
 
 	// Analogous to encrypting, we need an io.Pipe for the UntarGz
 	// function.
@@ -606,23 +623,12 @@ func decrypt() {
 	}
 
 	// Overwrite the keys
-	for i := range aes256Key {
-		aes256Key[i] = byte(0)
-	}
-	for i := range chacha20Key {
-		chacha20Key[i] = byte(0)
-	}
+	eraseSlice(aes256Key)
+	eraseSlice(chacha20Key)
 
 	logMsg("\rDone.                                                            \n")
-	logMsg("Encrypted file: " + destination + "\n")
-	if !quiet {
-		end := time.Now().UnixNano() / int64(time.Millisecond)
-		duration := end - start
-		fmt.Printf(
-			"%d bytes (%0.3f MB) written in %d ms (%0.2f seconds)\n",
-			bytesRead, float32(bytesRead)/(1024*1024),
-			duration, float32(duration)/1000)
-	}
+	logMsg("Destination: " + destination + "\n")
+	logStatus(start, bytesRead, encrypting)
 
 	statusCode = 0
 	return
