@@ -84,6 +84,7 @@ Alternatively you can clone the source and install the dependencies (apart from 
 ## Revision history
 
 ```
+v0.0.2: alpha2 release
 v0.0.1: initial commit; alpha release for testing
 ```
 
