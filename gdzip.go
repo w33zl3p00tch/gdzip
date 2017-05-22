@@ -590,7 +590,6 @@ func decrypt() {
 		// As soon as we don't get any more bytes from the reader,
 		// we're finished and have to leave the loop.
 		if eofReached && br == 0 {
-			fmt.Println(bytesRead)
 			if err = untarWriter.Close(); err != nil {
 				panic(err)
 			}
