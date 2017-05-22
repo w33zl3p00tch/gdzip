@@ -47,15 +47,15 @@ func tarGz(src string, writers ...io.Writer) error {
 	}
 
 	// walk path
+	return filepath.Walk(src, func(file string, fi os.FileInfo,
+		err error) error {
 
-	return filepath.Walk(src, func(file string, fi os.FileInfo, err error) error {
 		// return on any error
 		if err != nil {
 			fmt.Println(err)
-			fmt.Println("\n" +
-				"You seem to have encountered a file system error." +
-				"Please file a bug report to help me investigate it." +
-				"\n")
+			fmt.Println("\nYou seem to have encountered a file " +
+				"system error.\nPlease file a bug report to" +
+				" help me investigate it.\n")
 			return err
 		}
 
@@ -68,32 +68,29 @@ func tarGz(src string, writers ...io.Writer) error {
 		}
 
 		// create a new dir/file header
-		//header, err := tar.FileInfoHeader(fi, fi.Name())
 		header, err := tar.FileInfoHeader(fi, link)
 
 		if err != nil {
 			return err
 		}
-		// if there is no basedir, leave the filename as it is;
-		// replaces the next section
+		// If there is no basedir, leave the filename as it is, else
+		// update the name to reflect the desired destination.
 		if baseDir != "" {
-			header.Name = filepath.Join(baseDir, strings.TrimPrefix(file, src))
+			header.Name = filepath.Join(baseDir,
+				strings.TrimPrefix(file, src))
 		}
-		// update the name to correctly reflect the desired destination when untaring
-		//header.Name = strings.TrimPrefix(strings.Replace(
-		//file, src, "", -1), string(filepath.Separator))
 
 		// write the header
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
-		// return on directories since there will be no content to tar
-		//if fi.Mode().IsDir() {
-		//	return nil
-		//}
-		if !fi.Mode().IsRegular() { //nothing more to do for non-regular
+
+		// return on directories and symlinks since there will be no
+		// content to tar
+		if !fi.Mode().IsRegular() {
 			return nil
 		}
+
 		// open files for taring
 		f, err := os.Open(file)
 		if err != nil {
@@ -144,10 +141,6 @@ func untarGz(dst string, r io.Reader) error {
 		// the target location where the dir/file should be created
 		target := filepath.Join(dst, header.Name)
 
-		// the following switch could also be done using fi.Mode(), not sure if there
-		// a benefit of using one vs. the other.
-		// fi := header.FileInfo()
-
 		// check the file type
 		switch header.Typeflag {
 
@@ -163,7 +156,8 @@ func untarGz(dst string, r io.Reader) error {
 		case tar.TypeSymlink:
 			err := os.Symlink(header.Name, target)
 			if os.IsExist(err) {
-				fmt.Println("Symlink " + target + " already exists. Skipping.")
+				fmt.Println("Symlink " + target +
+					" already exists. Skipping.")
 			} else if err != nil {
 				fmt.Println(err)
 				return err
