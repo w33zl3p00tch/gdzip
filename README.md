@@ -70,7 +70,7 @@ gdzip is written in go. The simplest way is to 'go get' it:
 $ go get github.com/w33zl3p00tch/gdzip
 ```
 
-Alternatively you can clone the source and install the dependencies (apart from the base library these are golang.org/x/crypto/scrypt and golang.org/x/crypto/chacha20poly1305).
+Alternatively, you can clone the source and install the dependencies (apart from the base library these are golang.org/x/crypto/scrypt and golang.org/x/crypto/chacha20poly1305).
 
 
 
