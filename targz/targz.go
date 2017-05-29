@@ -22,9 +22,9 @@ import (
 	"strings"
 )
 
-// TarGz takes a source and variable writers and walks 'source' writing each file
+// TarGz takes a source and variable writers and walks src writing each file
 // found to the tar writer; the purpose for accepting multiple writers is to allow
-// for multiple outputs (for example a file, or md5 hash)
+// for multiple outputs (for example a file, or md5 hash), etc.
 func TarGz(src string, writers ...io.Writer) error {
 	// ensure the src actually exists before trying to tar it
 	if _, err := os.Stat(src); err != nil {
@@ -114,8 +114,8 @@ func TarGz(src string, writers ...io.Writer) error {
 }
 
 // UntarGz takes a destination path and a reader; a tar reader loops over the
-// tarfile creating the file structure at 'dst' along the way, and writing any
-// files
+// tarfile creating the file structure at dst along the way, and writes any
+// files to dst.
 func UntarGz(dst string, r io.Reader) error {
 
 	gzr, err := gzip.NewReader(r)
