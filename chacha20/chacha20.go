@@ -6,7 +6,7 @@ import (
 )
 
 // EncryptChacha20Poly1305 encrypts a byte slice using the given 256bit key
-// and 12byte nonce.
+// and 12 byte long nonce. The nonce will be prepended to the ciphertext.
 func EncryptChacha20Poly1305(key []byte, nonce []byte, msg []byte) []byte {
 	chacha, err := chacha20poly1305.New(key)
 	check(err)
