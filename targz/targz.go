@@ -1,7 +1,7 @@
-package targz
-
 // Package targz provides handy functions to create and extract tar.gz
 // files.
+package targz
+
 /*
 The tar.gz functionality has been inspired the following resources:
 
