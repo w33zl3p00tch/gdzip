@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-// tarGz takes a source and variable writers and walks 'source' writing each file
+// TarGz takes a source and variable writers and walks 'source' writing each file
 // found to the tar writer; the purpose for accepting multiple writers is to allow
 // for multiple outputs (for example a file, or md5 hash)
 func TarGz(src string, writers ...io.Writer) error {
