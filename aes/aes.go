@@ -1,7 +1,6 @@
-package aes
-
 // Package aes provides simple wrappers for encrypting and decrypting with
 // AES256.
+package aes
 
 import (
 	"crypto/aes"
@@ -10,6 +9,7 @@ import (
 
 // encryptAesGcm encrypts a given byte slice with the given 256bit key
 // and nonce using Galois Conter Mode as AEAD.
+// The nonce has to be 12 bytes long and will be prepended to the ciphertext.
 func EncryptAesGcm(key []byte, nonce []byte, msg []byte) []byte {
 	block, err := aes.NewCipher(key)
 	check(err)
