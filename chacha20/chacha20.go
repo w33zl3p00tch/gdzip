@@ -1,4 +1,4 @@
-// Package chacha20 provides handy wrappers to encrypt with chacha20poly1305.
+// Package chacha20 provides handy wrappers to encrypt with chacha20poly1305.x
 package chacha20
 
 import (
