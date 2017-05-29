@@ -1,5 +1,5 @@
 // Package aes provides simple wrappers for encrypting and decrypting with
-// AES256.
+// AES256 with Galois Counter Mode (GCM) as AEAD.
 package aes
 
 import (
