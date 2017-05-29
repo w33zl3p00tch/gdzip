@@ -52,6 +52,9 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/w33zl3p00tch/gdzip/aes"
+	"github.com/w33zl3p00tch/gdzip/chacha20"
+	"github.com/w33zl3p00tch/gdzip/targz"
 	"golang.org/x/crypto/scrypt"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
@@ -286,7 +289,7 @@ func encrypt() {
 
 		// Make a tar.gz of the input file and write it into our
 		// tarwriter:
-		tarErr := tarGz(encFile, tarWriter)
+		tarErr := targz.TarGz(encFile, tarWriter)
 		check(tarErr)
 	}()
 
@@ -552,7 +555,7 @@ func decrypt() {
 		defer wg.Done() // Tell the WaitGroup that we're done.
 
 		// untar the stream and write it to dest.
-		untarErr := untarGz(destination, untarReader)
+		untarErr := targz.UntarGz(destination, untarReader)
 		if untarErr != io.EOF {
 			check(untarErr)
 		}
@@ -667,23 +670,23 @@ func encryptBuffer(chunkBuf, aes256Key, chacha20Key, currentIV,
 	currentNonce []byte) []byte {
 	switch mode {
 	case 1:
-		chunkBuf = encryptAesGcm(aes256Key,
+		chunkBuf = aes.EncryptAesGcm(aes256Key,
 			currentIV, chunkBuf)
 	case 2:
-		chunkBuf = encryptChacha20Poly1305(
+		chunkBuf = chacha20.EncryptChacha20Poly1305(
 			chacha20Key, currentNonce,
 			chunkBuf)
 	case 3:
-		chunkBuf = encryptAesGcm(aes256Key,
+		chunkBuf = aes.EncryptAesGcm(aes256Key,
 			currentIV, chunkBuf)
-		chunkBuf = encryptChacha20Poly1305(
+		chunkBuf = chacha20.EncryptChacha20Poly1305(
 			chacha20Key, currentNonce,
 			chunkBuf)
 	case 4:
-		chunkBuf = encryptChacha20Poly1305(
+		chunkBuf = chacha20.EncryptChacha20Poly1305(
 			chacha20Key, currentNonce,
 			chunkBuf)
-		chunkBuf = encryptAesGcm(aes256Key,
+		chunkBuf = aes.EncryptAesGcm(aes256Key,
 			currentIV, chunkBuf)
 	}
 	return chunkBuf
@@ -693,17 +696,17 @@ func encryptBuffer(chunkBuf, aes256Key, chacha20Key, currentIV,
 func decryptBuffer(chunkBuf, aes256Key, chacha20Key []byte) []byte {
 	switch mode {
 	case 1:
-		chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
+		chunkBuf = aes.DecryptAesGcm(aes256Key, chunkBuf)
 	case 2:
-		chunkBuf = decryptChacha20Poly1305(chacha20Key,
+		chunkBuf = chacha20.DecryptChacha20Poly1305(chacha20Key,
 			chunkBuf)
 	case 3:
-		chunkBuf = decryptChacha20Poly1305(chacha20Key,
+		chunkBuf = chacha20.DecryptChacha20Poly1305(chacha20Key,
 			chunkBuf)
-		chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
+		chunkBuf = aes.DecryptAesGcm(aes256Key, chunkBuf)
 	case 4:
-		chunkBuf = decryptAesGcm(aes256Key, chunkBuf)
-		chunkBuf = decryptChacha20Poly1305(chacha20Key,
+		chunkBuf = aes.DecryptAesGcm(aes256Key, chunkBuf)
+		chunkBuf = chacha20.DecryptChacha20Poly1305(chacha20Key,
 			chunkBuf)
 	}
 	return chunkBuf
