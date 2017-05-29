@@ -1,6 +1,5 @@
+// package chacha20 provides handy wrappers to encrypt with chacha20poly1305.
 package chacha20
-
-// package chacha20 provides handy wrappers to encrypt with chacha20poly1305
 
 import (
 	"golang.org/x/crypto/chacha20poly1305"
