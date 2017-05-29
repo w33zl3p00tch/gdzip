@@ -7,7 +7,7 @@ import (
 	"crypto/cipher"
 )
 
-// encryptAesGcm encrypts a given byte slice with the given 256bit key
+// EncryptAesGcm encrypts a given byte slice with the given 256bit key
 // and nonce using Galois Conter Mode as AEAD.
 // The nonce has to be 12 bytes long and will be prepended to the ciphertext.
 func EncryptAesGcm(key []byte, nonce []byte, msg []byte) []byte {
@@ -23,8 +23,8 @@ func EncryptAesGcm(key []byte, nonce []byte, msg []byte) []byte {
 	return ciphertext
 }
 
-// decryptAesGcm decrypts a byte slice that has been encrypted with
-// encryptAesGcm.
+// DecryptAesGcm decrypts a byte slice that has been encrypted with
+// EncryptAesGcm.
 func DecryptAesGcm(key []byte, msg []byte) []byte {
 	block, err := aes.NewCipher(key)
 	check(err)
