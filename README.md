@@ -55,7 +55,7 @@ encrypts a file using mode 3 (AES with ChaCha20) to /tmp/FILENAME.gdz
 
 ## Installation
 
-Binaries for Windows, Linux-amd64, Mac OS X and FreeBSD-amd64 are available at:
+Binaries for Windows, Linux, Mac OS X and FreeBSD are available at:
 https://github.com/w33zl3p00tch/gdzip/releases
 
 Simply extract the binary to a folder in your PATH, e.g. /usr/local and make sure that it is executable.
