@@ -25,13 +25,16 @@ Please report any bugs you might find. Suggestions and feature requests are welc
 
 ## Usage
 
+To print a short help:
+```
+$ gdzip -h
+```
+
 to encrypt a file or folder:
 
 ```
 $ gdzip -encrypt FILE_TO_ENCRYPT
 ```
-
-
 
 to decrypt a file:
 
@@ -39,16 +42,7 @@ to decrypt a file:
 $ gdzip -decrypt FILE.gdz
 ```
 
-
-
 In both cases the user will be asked to provide a password.
-
-
-
-to print a short help:
-```
-$ gdzip -h
-```
 
 
 Example with more options set:
@@ -56,8 +50,7 @@ Example with more options set:
 $ gdzip -encrypt PATH_TO_FILE -mode 3 -dest /tmp/
 ```
 
-- encrypts a file using mode 3 (AES with ChaCha20) to /tmp/FILENAME.gdz
-
+encrypts a file using mode 3 (AES with ChaCha20) to /tmp/FILENAME.gdz
 
 
 ## Installation
