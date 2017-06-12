@@ -113,8 +113,7 @@ const (
 	saltLength = 32 // length in bytes. Restricted to uint8 (max 255)
 	// Changing these will break this program, and and any binary-based
 	// computations, for that matter:
-	sixtyFourBit = 8   // 8 bytes are 64 bits.
-	uint8Max     = 255 // highest value of an uint8
+	sixtyFourBit = 8 // 8 bytes are 64 bits.
 )
 
 // main function.
@@ -218,7 +217,8 @@ func encrypt() {
 		fmt.Printf("\n%s already exists. Overwrite? (yes/No): ",
 			destination)
 		reader := bufio.NewReader(os.Stdin)
-		text, _ := reader.ReadString('\n')
+		text, err := reader.ReadString('\n')
+		check(err)
 		if !strings.EqualFold("y", string(text[0])) {
 			fmt.Println("File not overwritten. Aborting.")
 			statusCode = 4
@@ -228,19 +228,15 @@ func encrypt() {
 
 	// Create the file to write our output to.
 	outFile, err := os.Create(destination)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 	check(err)
 	defer func() {
-		if err := outFile.Close(); err != nil {
+		if err = outFile.Close(); err != nil {
 			panic(err)
 		}
 	}()
 
 	// When encrypting, we want to check the user input for typos,
-	// so we pass decrypt = false to getPassphrase().
+	// so we pass encrypting = true to getPassphrase().
 	encrypting := true
 	// Get the encryption passphrase from the user, if it is not already
 	// set by the flag:
@@ -285,7 +281,10 @@ func encrypt() {
 	// background via a goroutine:
 	go func() {
 		// defer closure of the writer
-		defer tarWriter.Close()
+		defer func() {
+			err = tarWriter.Close()
+			check(err)
+		}()
 
 		// Make a tar.gz of the input file and write it into our
 		// tarwriter:
@@ -335,11 +334,10 @@ func encrypt() {
 		chunkBuf = append(currentChunkLen, chunkBuf...)
 
 		// Write the encrypted chunk
-		bw, err := fileWriter.Write(chunkBuf)
-		if err != nil {
+		var bw int // temporary variable to store bytes written
+		if bw, err = fileWriter.Write(chunkBuf); err != nil {
 			panic(err)
 		}
-
 		bytesWritten += bw // add to the total of bytes written
 
 		if eofReached {
@@ -360,8 +358,6 @@ func encrypt() {
 	logMsg("Encrypted file: " + destination + "\n")
 	logStatus(start, bytesWritten, encrypting)
 	statusCode = 0
-
-	return
 }
 
 // logStatus prints a final one-line report when verbose.
@@ -450,7 +446,7 @@ func getNonce(ivStringMap map[string]bool, nonceStringMap map[string]bool) (
 		// The following while loop's condition will almost
 		// never be true, but when it is, we have to eliminate
 		// the duplicate before it can be used as a nonce.
-		for ivStringMap[ivString] == true {
+		for ivStringMap[ivString] {
 			// Get a new nonce.
 			_, err := io.ReadFull(rand.Reader, currentIV[:])
 			check(err)
@@ -471,7 +467,7 @@ func getNonce(ivStringMap map[string]bool, nonceStringMap map[string]bool) (
 		check(err)
 		// Same as before, just with nonces.
 		nonceString = string(currentNonce[:])
-		for nonceStringMap[nonceString] == true {
+		for nonceStringMap[nonceString] {
 			_, err := io.ReadFull(rand.Reader,
 				currentNonce[:])
 			check(err)
@@ -559,7 +555,10 @@ func decrypt() {
 		if untarErr != io.EOF {
 			check(untarErr)
 		}
-		defer untarReader.Close()
+		defer func() {
+			err := untarReader.Close()
+			check(err)
+		}()
 	}()
 
 	// Whether EOF has been reached by the file Reader:
@@ -631,7 +630,6 @@ func decrypt() {
 	logStatus(start, bytesRead, encrypting)
 
 	statusCode = 0
-	return
 }
 
 // displayStatus
@@ -722,7 +720,9 @@ func assembleHeader(salt []byte) []byte {
 	// [scryptR] [scryptP]
 	//
 	// The mode as uint8
-	modeByte := []byte{byte(uint8(mode))}
+	//modeByte := []byte{byte(uint8(mode))}
+	modeByte := []byte{(mode)}
+
 	// Saltlength in bytes. If the salt gets larger than 255 bytes,
 	// another type is needed. (This is not recommended.)
 	saltLengthByte := []byte{byte(len(salt))}
@@ -733,9 +733,9 @@ func assembleHeader(salt []byte) []byte {
 	binary.BigEndian.PutUint64(scryptNBytes, uint64(scryptN))
 	// Current sane values for r can be represented as uint8.
 	// The byte indicates the uint8 value for r.
-	scryptRByte := []byte{byte(uint8(scryptR))}
+	scryptRByte := []byte{byte(scryptR)}
 	// The same goes for p:
-	scryptPByte := []byte{byte(uint8(scryptP))}
+	scryptPByte := []byte{byte(scryptP)}
 	header := append(magic, fileVersion...)
 	header = append(header, modeByte...)
 	header = append(header, saltLengthByte...)
@@ -790,14 +790,14 @@ func readHeader(inFile *os.File) (int, []byte) {
 	br, err = inFile.Read(inModeBytes)
 	check(err)
 	bytesRead += br
-	mode = uint8(inModeBytes[0])
+	mode = inModeBytes[0]
 	//
 	// [1]saltLength
 	inSaltLenBytes := make([]byte, 1)
 	br, err = inFile.Read(inSaltLenBytes)
 	check(err)
 	bytesRead += br
-	inSaltLen := uint8(inSaltLenBytes[0])
+	inSaltLen := inSaltLenBytes[0]
 	//
 	// [saltLen]salt
 	salt := make([]byte, inSaltLen)
@@ -810,7 +810,7 @@ func readHeader(inFile *os.File) (int, []byte) {
 	br, err = inFile.Read(inScryptNLenBytes)
 	check(err)
 	bytesRead += br
-	inScryptNLen := uint8(inScryptNLenBytes[0])
+	inScryptNLen := inScryptNLenBytes[0]
 	//
 	// [scryptNLen]scryptN
 	inScryptNBytes := make([]byte, inScryptNLen)
@@ -840,7 +840,7 @@ func readHeader(inFile *os.File) (int, []byte) {
 // logMsg is a shorthand for logging to stdout.
 func logMsg(msg string) {
 	if !quiet {
-		fmt.Printf(msg)
+		fmt.Print(msg)
 	}
 }
 
@@ -851,15 +851,15 @@ func getPassphrase(encrypt bool) []byte {
 	match := false // whether the phrases given are the same
 
 	if encrypt {
-		for match == false {
+		for !match {
 			fmt.Printf("\nEnter a passphrase for encryption: ")
-			bytePassword, err := terminal.ReadPassword(int(
-				syscall.Stdin))
+			bytePassword, err := terminal.ReadPassword(
+				syscall.Stdin)
 			check(err)
 
 			fmt.Printf("\n\nPlease verify the passphrase: ")
-			bytePassword1, err := terminal.ReadPassword(int(
-				syscall.Stdin))
+			bytePassword1, err := terminal.ReadPassword(
+				syscall.Stdin)
 			check(err)
 
 			if bytes.Equal(bytePassword, bytePassword1) {
@@ -873,7 +873,7 @@ func getPassphrase(encrypt bool) []byte {
 		}
 	} else {
 		fmt.Printf("\n\nEnter a passphrase for decryption: ")
-		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+		bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 		check(err)
 		passphrase = bytePassword
 	}
@@ -942,8 +942,6 @@ See gdzip -h for full help.
 `
 	fmt.Println(msg)
 	statusCode = 3 // ambigouous input
-
-	return
 }
 
 // check for errors and quit if an error occurred.
