@@ -8,7 +8,7 @@ import (
 )
 
 // EncryptAesGcm encrypts a byte slice with the given 256bit key
-// and nonce using Galois Conter Mode as AEAD.
+// and nonce using Galois Counter Mode as AEAD.
 // The nonce has to be 12 bytes long and will be prepended to the ciphertext.
 func EncryptAesGcm(key []byte, nonce []byte, msg []byte) []byte {
 	block, err := aes.NewCipher(key)
