@@ -64,7 +64,7 @@ func TarGz(src string, writers ...io.Writer) error {
 
 		// We include symlinks as is and won't dereference them
 		var link string
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+		if string(fi.Mode().String()[0]) == "L" {
 			if link, err = os.Readlink(src); err != nil {
 				return err
 			}
@@ -157,7 +157,7 @@ func UntarGz(dst string, r io.Reader) error {
 
 		// os.Stat() won't work on symlinks, so we try to create it anyway.
 		case tar.TypeSymlink:
-			err := os.Symlink(header.Name, target)
+			err := os.Symlink(header.Linkname, target)
 			if os.IsExist(err) {
 				fmt.Println("Symlink " + target +
 					" already exists. Skipping.")
