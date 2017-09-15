@@ -65,7 +65,7 @@ func TarGz(src string, writers ...io.Writer) error {
 		// We include symlinks as is and won't dereference them
 		var link string
 		if string(fi.Mode().String()[0]) == "L" {
-			if link, err = os.Readlink(src); err != nil {
+			if link, err = os.Readlink(file); err != nil {
 				return err
 			}
 		}
