@@ -77,6 +77,7 @@ Alternatively, you can clone the source and install the dependencies (apart from
 ## Revision history
 
 ```
+v1.0.0: nothing new, really. I've considered gdzip stable enough for a first release.
 v0.0.2: alpha2 release
 v0.0.1: initial commit; alpha release for testing
 ```
