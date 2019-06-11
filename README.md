@@ -82,6 +82,15 @@ v0.0.2: alpha2 release
 v0.0.1: initial commit; alpha release for testing
 ```
 
+## Roadmap
+
+```
+My rough plan for future versions
+v1.0.1: add a build script for cross compiling and upload new binaries
+v1.1.0: reorganize the package structure to make GUI development easier
+v1.2.0: add GUI
+v2.0.0: add support for asymmetric encryption (RSA/PGP) - this is rather tricky to do right and I want to support standard PKI implementations, so this might take a while
+```
 
 ## License
 
