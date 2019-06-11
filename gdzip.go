@@ -63,7 +63,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -854,12 +853,12 @@ func getPassphrase(encrypt bool) []byte {
 		for !match {
 			fmt.Printf("\nEnter a passphrase for encryption: ")
 			bytePassword, err := terminal.ReadPassword(
-				syscall.Stdin)
+				int(os.Stdin.Fd()))
 			check(err)
 
 			fmt.Printf("\n\nPlease verify the passphrase: ")
 			bytePassword1, err := terminal.ReadPassword(
-				syscall.Stdin)
+				int(os.Stdin.Fd()))
 			check(err)
 
 			if bytes.Equal(bytePassword, bytePassword1) {
@@ -873,7 +872,7 @@ func getPassphrase(encrypt bool) []byte {
 		}
 	} else {
 		fmt.Printf("\n\nEnter a passphrase for decryption: ")
-		bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+		bytePassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 		check(err)
 		passphrase = bytePassword
 	}
