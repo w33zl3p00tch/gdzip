@@ -392,7 +392,7 @@ func readTar(tarReader io.Reader) ([]byte, bool) {
 	// written into the buffer, because most often, the buffer
 	// will be larger than the last chunk of the file.
 	bytesPerBuffer := 0
-	// Wether we have reached EOF, yet:
+	// Whether we have reached EOF, yet:
 	eofReached := false
 	// chunkBuf is the buffer to store and process our chunks.
 	chunkBuf := make([]byte, chunkLen)
