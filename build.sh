@@ -21,6 +21,13 @@ declare -a arch=(
 	"Linux_arm64 linux arm64"
 )
 
+shaCmd=shaSum
+
+# on FreeBSD the sha256 command does something similar
+if [ -e /bin/freebsd-version ]; then
+        shaCmd="sha256"
+fi
+
 for i in "${arch[@]}"
 do
 	name=`echo $i | cut -d " " -f 1`
@@ -36,7 +43,7 @@ do
 		cp ../../README.md .
 		cd ..
 		tar -zcvf $prefix$name.tar.gz $prefix$name
-		shaSum=`sha256sum $prefix$name.tar.gz`
+		shaSum=`$shaCmd $prefix$name.tar.gz`
 		echo $shaSum >> sha256sums.txt
 	popd
 	echo -e "\n\n"
