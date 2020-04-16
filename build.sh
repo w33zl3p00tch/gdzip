@@ -3,11 +3,11 @@
 # This builds a binary release for various architectures.
 # Most users of other systems probably want to compile this themselves.
 #
-# run this from the repo's root directory like so: 
+# run this from the repo's root directory like so:
 # $ ./build.sh
 
-progName="gdzip_"
-version="v1.0.1_"
+progName="gdzip"
+version="_v1.0.2_"
 prefix="$progName$version"
 
 declare -a arch=(
@@ -23,22 +23,23 @@ declare -a arch=(
 
 for i in "${arch[@]}"
 do
-	name=`echo $i | cut -d " " -f 1`
-	goos=`echo $i | cut -d " " -f 2`
-	goarch=`echo $i | cut -d " " -f 3`
+	name=$(echo "$i" | cut -d " " -f 1)
+	goos=$(echo "$i" | cut -d " " -f 2)
+	goarch=$(echo "$i" | cut -d " " -f 3)
 
-	mkdir -p build/$prefix$name
+	mkdir -p build/$prefix"$name"
 
-	pushd build/$prefix$name
+	pushd build/$prefix"$name" || exit 1
 		echo "Building $prefix$name"
 		GOOS=$goos GOARCH=$goarch go build -ldflags "-s -w" ../../
+		upx "$progName" || upx "$progName".exe
 		cp ../../LICENSE .
 		cp ../../README.md .
 		cd ..
-		tar -zcvf $prefix$name.tar.gz $prefix$name
-		shaSum=`sha256sum $prefix$name.tar.gz`
-		echo $shaSum >> sha256sums.txt
-	popd
+		tar -zcvf "$prefix$name".tar.gz "$prefix$name"
+		shaSum=$(sha256sum "$prefix$name".tar.gz)
+		echo "$shaSum" >> sha256sums.txt
+	popd || exit 1
 	echo -e "\n\n"
 done
 
