@@ -3,7 +3,7 @@
 package targz
 
 /*
-The tar.gz functionality has been inspired the following resources:
+The tar.gz functionality has been inspired by the following resources:
 
 http://stackoverflow.com/a/40003617
 http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
