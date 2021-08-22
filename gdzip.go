@@ -52,11 +52,6 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/w33zl3p00tch/gdzip/aes"
-	"github.com/w33zl3p00tch/gdzip/chacha20"
-	"github.com/w33zl3p00tch/gdzip/targz"
-	"golang.org/x/crypto/scrypt"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"log"
 	"os"
@@ -64,6 +59,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/w33zl3p00tch/gdzip/aes"
+	"github.com/w33zl3p00tch/gdzip/chacha20"
+	"github.com/w33zl3p00tch/gdzip/targz"
+	"golang.org/x/crypto/scrypt"
+	"golang.org/x/term"
 )
 
 // Some global variables. This way we avoid having to pass them
@@ -844,7 +845,7 @@ func logMsg(msg string) {
 }
 
 // getPassphrase gets the passphrase from the user. Will not echo.
-// Currently, this uses ReadPassword() from x/crypto/ssh/terminal.
+// Currently, this uses ReadPassword() from golang.org/x/term.
 func getPassphrase(encrypt bool) []byte {
 	var passphrase []byte
 	match := false // whether the phrases given are the same
@@ -852,12 +853,12 @@ func getPassphrase(encrypt bool) []byte {
 	if encrypt {
 		for !match {
 			fmt.Printf("\nEnter a passphrase for encryption: ")
-			bytePassword, err := terminal.ReadPassword(
+			bytePassword, err := term.ReadPassword(
 				int(os.Stdin.Fd()))
 			check(err)
 
 			fmt.Printf("\n\nPlease verify the passphrase: ")
-			bytePassword1, err := terminal.ReadPassword(
+			bytePassword1, err := term.ReadPassword(
 				int(os.Stdin.Fd()))
 			check(err)
 
@@ -872,7 +873,7 @@ func getPassphrase(encrypt bool) []byte {
 		}
 	} else {
 		fmt.Printf("\n\nEnter a passphrase for decryption: ")
-		bytePassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		bytePassword, err := term.ReadPassword(int(os.Stdin.Fd()))
 		check(err)
 		passphrase = bytePassword
 	}
