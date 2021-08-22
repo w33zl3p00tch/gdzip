@@ -7,7 +7,7 @@
 # $ ./build.sh
 
 progName="gdzip"
-version="_v1.0.3_"
+version="_v1.0.4_"
 prefix="$progName$version"
 
 declare -a arch=(
